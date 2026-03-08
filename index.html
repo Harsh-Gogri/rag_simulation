@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RAG Simulator</title>
+
+<style>
+
+body{
+font-family: Inter, system-ui;
+background:#0f172a;
+color:white;
+margin:0;
+padding:40px;
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+}
+
+h1{
+text-align:center;
+margin-bottom:30px;
+}
+
+.card{
+background:#1e293b;
+border-radius:12px;
+padding:20px;
+margin-bottom:20px;
+box-shadow:0 10px 25px rgba(0,0,0,.3);
+}
+
+textarea,input{
+width:100%;
+padding:12px;
+border-radius:8px;
+border:none;
+margin-top:10px;
+font-size:14px;
+}
+
+button{
+margin-top:10px;
+padding:10px 18px;
+border:none;
+border-radius:8px;
+background:#6366f1;
+color:white;
+font-weight:600;
+cursor:pointer;
+}
+
+button:hover{
+background:#4f46e5;
+}
+
+.step{
+margin-top:20px;
+padding:12px;
+background:#334155;
+border-radius:8px;
+}
+
+.chunk{
+background:#475569;
+padding:8px;
+border-radius:6px;
+margin:5px 0;
+font-size:13px;
+}
+
+.vector{
+font-size:12px;
+opacity:.8;
+}
+
+.result{
+background:#22c55e;
+color:black;
+padding:10px;
+border-radius:8px;
+margin-top:10px;
+font-weight:600;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>RAG Pipeline Simulator</h1>
+
+<div class="card">
+
+<h3>1. Add Source Document</h3>
+
+<textarea id="sourceText" rows="4"
+placeholder="Paste knowledge source here..."></textarea>
+
+<button onclick="chunkText()">Chunk Document</button>
+
+<div id="chunks"></div>
+
+</div>
+
+
+<div class="card">
+
+<h3>2. Vector Database</h3>
+
+<div id="vectorDB"></div>
+
+</div>
+
+
+<div class="card">
+
+<h3>3. Ask Question</h3>
+
+<input id="queryInput" placeholder="Ask something about the document">
+
+<button onclick="runQuery()">Run Retrieval</button>
+
+<div id="retrieval"></div>
+
+<div id="answer"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let chunks=[]
+let vectors=[]
+
+function fakeEmbedding(text){
+
+let arr=[]
+
+for(let i=0;i<5;i++){
+arr.push(Math.random().toFixed(2))
+}
+
+return arr
+
+}
+
+function chunkText(){
+
+let text=document.getElementById("sourceText").value
+
+chunks=text.match(/.{1,120}/g) || []
+
+let chunkHTML=""
+
+chunks.forEach((c,i)=>{
+
+chunkHTML+=`
+<div class="step">
+<b>Chunk ${i+1}</b>
+<div class="chunk">${c}</div>
+</div>
+`
+
+})
+
+document.getElementById("chunks").innerHTML=chunkHTML
+
+generateEmbeddings()
+
+}
+
+function generateEmbeddings(){
+
+vectors=[]
+
+chunks.forEach(c=>{
+
+vectors.push({
+text:c,
+vector:fakeEmbedding(c)
+})
+
+})
+
+renderVectorDB()
+
+}
+
+function renderVectorDB(){
+
+let html=""
+
+vectors.forEach((v,i)=>{
+
+html+=`
+<div class="step">
+
+<b>Vector ${i+1}</b>
+
+<div class="chunk">${v.text}</div>
+
+<div class="vector">Embedding: [${v.vector.join(", ")}]</div>
+
+</div>
+`
+
+})
+
+document.getElementById("vectorDB").innerHTML=html
+
+}
+
+function similarity(v1,v2){
+
+let score=0
+
+for(let i=0;i<v1.length;i++){
+score+=Math.abs(v1[i]-v2[i])
+}
+
+return score
+
+}
+
+function runQuery(){
+
+let q=document.getElementById("queryInput").value
+
+let queryVector=fakeEmbedding(q)
+
+let scored=vectors.map(v=>{
+
+return{
+text:v.text,
+score:similarity(queryVector,v.vector)
+}
+
+})
+
+scored.sort((a,b)=>a.score-b.score)
+
+let top=scored.slice(0,2)
+
+let html=`<div class="step">
+<b>Query Embedding</b>
+<div class="vector">[${queryVector.join(", ")}]</div>
+</div>`
+
+top.forEach((t,i)=>{
+
+html+=`
+<div class="step">
+<b>Retrieved Chunk ${i+1}</b>
+<div class="chunk">${t.text}</div>
+</div>
+`
+
+})
+
+document.getElementById("retrieval").innerHTML=html
+
+generateAnswer(q,top)
+
+}
+
+function generateAnswer(q,chunks){
+
+let context=chunks.map(c=>c.text).join(" ")
+
+let answer=`Using retrieved context: "${context}" 
+
+The system would now send this context + your question to an LLM to generate the final answer.`
+
+document.getElementById("answer").innerHTML=
+`<div class="result">${answer}</div>`
+
+}
+
+</script>
+
+</body>
+
+</html>
